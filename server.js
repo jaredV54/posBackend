@@ -46,7 +46,6 @@ app.get('/user', (req, res) => {
       console.error(err);
       return res.json("Error retrieving user data");
     }
-    console.log(result);
     return res.json(result);
   });
 });
