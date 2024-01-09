@@ -167,9 +167,9 @@ app.delete('/deleteUser/:id', (req, res) => {
 
 // Create product
 app.post('/product', (req, res) => {
-  const { name, description, isDeleted, price, quantity, image, imageHover } = req.body;
-  const sql = "INSERT INTO product (name, description, isDeleted, price, quantity, image, imageHover) VALUES (?, ?, ?, ?, ?, ?, ?)";
-  const values = [name, description, isDeleted, price, quantity, image, imageHover];
+  const { name, description, isDeleted, price, quantity, image, imageHover, hybrid } = req.body;
+  const sql = "INSERT INTO product (name, description, isDeleted, price, quantity, image, imageHover, hybrid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+  const values = [name, description, isDeleted, price, quantity, image, imageHover, hybrid];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -182,23 +182,29 @@ app.post('/product', (req, res) => {
 
 // Get all products
 app.get('/product', (req, res) => {
-  const sql = "SELECT * FROM product";
+  const { hybrid } = req.query;
 
-  pool.query(sql, (err, result) => {
+  let sql;
+  if (hybrid) {
+    sql = "SELECT * FROM product WHERE isDeleted IS NULL AND hybrid = ?"
+  } else {
+    sql = "SELECT * FROM product WHERE isDeleted IS NULL"
+  }
+
+  pool.query(sql, [hybrid], (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error retrieving products " +  err);
+      return res.status(500).json("Error retrieving products " +  err);
     }
-    return res.json(result);
+    return res.status(200).json(result);
   });
 });
 
-// Update a product by ID
 app.put('/product/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, isDeleted, price, quantity, image, imageHover } = req.body;
-  const sql = "UPDATE product SET name = ?, description = ?, isDeleted = ?, price = ?, quantity = ?, image = ?, imageHover = ? WHERE id = ?";
-  const values = [name, description, isDeleted, price, quantity, image, imageHover, id];
+  const { name, description, price, quantity, image, imageHover, hybrid } = req.body;
+  const sql = "UPDATE product SET name = ?, description = ?, price = ?, quantity = ?, image = ?, imageHover = ?, hybrid = ? WHERE id = ?";
+  const values = [name, description, price, quantity, image, imageHover, hybrid, id];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -211,6 +217,32 @@ app.put('/product/:id', (req, res) => {
     return res.json("Product updated");
   });
 });
+
+app.put('/deleteProduct/:id', (req, res) => {
+  const { id } = req.params;
+  const { isDeleted } = req.body;
+
+  if (isDeleted === undefined) {
+    return res.status(400).json("isDeleted is required");
+  }
+
+  const sql = "UPDATE product SET isDeleted = ? WHERE id = ?";
+  const values = [isDeleted, id];
+
+  pool.query(sql, values, (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json("Error updating product");
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json("Product not found");
+    }
+
+    return res.json("Product updated");
+  });
+});
+
 
 // Delete a product by ID
 app.put('/product/:id', (req, res) => {
@@ -298,32 +330,67 @@ app.get('/sales', (req, res) => {
 
 //Post transaction record
 app.post('/transactions', (req, res) => {
-  const { items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment } = req.body;
-  const sql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)";
-  const values = [items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment];
+  proceedToTransaction(req, res);
+});
 
-  pool.query(sql, values, (err, result) => {
+const proceedToTransaction = (req, res) => {
+  const { items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform } = req.body;
+
+  const checkReceiptSql = "SELECT COUNT(*) AS count FROM transactions WHERE receiptNo = ?";
+  const checkReceiptValues = [receiptNo];
+
+  pool.query(checkReceiptSql, checkReceiptValues, (checkErr, checkResult) => {
+    if (checkErr) {
+      console.error(checkErr);
+      return res.status(502).json({ success: false, message: "Error checking receipt number" });
+    }
+
+    const receiptCount = checkResult[0].count;
+
+    if (receiptCount > 0) {
+      return res.json({ success: false, message: "Receipt number already exists" });
+    } else {
+      const sql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`, `platform`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)";
+      const values = [items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform];
+
+      pool.query(sql, values, (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(504).json({ success: false, message: "Transaction error" });
+        } else {
+          return res.status(200).json({ success: true, message: "Transaction successful", id: result.insertId });
+        }
+      });
+    }
+  });
+};
+
+app.get('/transactions/:id', (req, res) => {
+  const transactionId = req.params.id;
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform FROM transactions t JOIN customer c ON c.id = t.customerId WHERE t.id = ? ORDER BY t.id DESC;";
+
+  pool.query(sql, [transactionId], (err, result) => {
     if (err) {
       console.error(err);
-      return res.json({ success: false, message: "Transaction error" });
-    } else {
-      return res.json({ success: true, message: "Transaction successful", id: result.insertId });
+      return res.json("Error retrieving transaction records");
     }
+    console.log(result);
+    return res.json(result);
   });
 });
 
 app.get('/transactions', (req, res) => {
-  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
 
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
       return res.json("Error retrieving transaction records");
     }
-    console.log(result)
+    console.log(result);
     return res.json(result);
   });
-})
+});
 
 //Store
 app.get('/store', (req, res) => {
@@ -391,7 +458,7 @@ app.put('/store/:id', (req, res) => {
 
 //Customer
 app.get('/customer', (req, res) => {
-  const sql = "SELECT * FROM customer";
+  const sql = "SELECT * FROM customer ORDER BY id DESC";
 
   pool.query(sql, (err, result) => {
     if (err) {
@@ -443,11 +510,13 @@ app.put('/customer/:id', (req, res) => {
     bDate, 
     contactPersonName, 
     contactPersonNo, 
-    company, 
-    companyContactNo 
+    remarks,
+    sourceOfReferral,
+    providers,
+    caseNumber
   } = req.body;
-  const sql = "UPDATE customer SET fName = ?, lName = ?, mName = ?, email = ?, contactNo = ?, address = ?, bDate = ?, contactPersonName = ?, contactPersonNo = ?, company = ?, companyContactNo = ?  WHERE id = ?";
-  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, company, companyContactNo, id];
+  const sql = "UPDATE customer SET fName = ?, lName = ?, mName = ?, email = ?, contactNo = ?, address = ?, bDate = ?, contactPersonName = ?, contactPersonNo = ?, remarks = ?, sourceOfReferral = ?, providers =?, caseNumber= ?  WHERE id = ?";
+  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber, id];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -470,13 +539,16 @@ app.post('/customer', (req, res) => {
     contactNo, 
     address, 
     bDate, 
-    contactPersonName, 
-    contactPersonNo, 
-    company, 
-    companyContactNo 
+    contactPersonName,
+    contactPersonNo,
+    remarks,
+    sourceOfReferral,
+    providers,
+    caseNumber
+
   } = req.body;
-  const sql = "INSERT INTO customer (fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, company, companyContactNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, company, companyContactNo];
+  const sql = "INSERT INTO customer (fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -532,22 +604,10 @@ app.put('/select/:id', (req, res) => {
 
 app.put('/deleteCustomer/:id', (req, res) => {
   const { id } = req.params;
-  const {
-    fName, 
-    lName, 
-    mName, 
-    email, 
-    contactNo, 
-    address, 
-    bDate, 
-    contactPersonName, 
-    contactPersonNo, 
-    company, 
-    companyContactNo,
-    isDeleted
-  } = req.body;
-  const sql = "UPDATE customer SET fName = ?, lName = ?, mName = ?, email = ?, contactNo = ?, address = ?, bDate = ?, contactPersonName = ?, contactPersonNo = ?, company = ?, companyContactNo = ?, isDeleted = ?  WHERE id = ?";
-  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, company, companyContactNo, isDeleted, id];
+  const { isDeleted } = req.body;
+
+  const sql = "UPDATE customer SET isDeleted = ? WHERE id = ?";
+  const values = [isDeleted, id];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -573,17 +633,37 @@ app.post('/splitPayment', (req, res) => {
     customerId,
     modeOfPayment,
     accNo
-  } = req.body
-  const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
-  pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.json({ success: false, message: "Transaction error" });
-    } else {
-      return res.json({ success: true, message: "Transaction successful", id: result.insertId });
+  } = req.body;
+
+  // Check if the receipt number already exists in the splitpayment table
+  const checkReceiptSql = "SELECT COUNT(*) AS count FROM splitpayment WHERE receiptNo = ?";
+  const checkReceiptValues = [receiptNo];
+
+  pool.query(checkReceiptSql, checkReceiptValues, (checkErr, checkResult) => {
+    if (checkErr) {
+      console.error(checkErr);
+      return res.status(502).json({ success: false, message: "Error checking receipt number" });
     }
-  })
-})
+
+    const receiptCount = checkResult[0].count;
+
+    if (receiptCount > 0) {
+      return res.json({ success: false, message: "Receipt number already exists in splitpayment" });
+    } else {
+      const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
+      
+      pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(504).json({ success: false, message: "Split payment error" });
+        } else {
+          return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId });
+        }
+      });
+    }
+  });
+});
+
 
 app.get('/splitPayment', (req, res) => {
   const sql = "SELECT transId, balance FROM splitpayment";
@@ -608,7 +688,7 @@ app.get('/splitPayment', (req, res) => {
 });
 
 app.get('/splitPaymentRecords', (req, res) => {
-  const sql = "SELECT * FROM splitpayment";
+  const sql = "SELECT * FROM splitpayment ORDER BY id DESC";
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
