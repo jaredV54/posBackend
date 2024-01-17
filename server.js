@@ -11,7 +11,7 @@ const pool = mysql.createPool({
   host: 'psyzygypos.cr8wmm0k8rm3.ap-southeast-2.rds.amazonaws.com', 
   user: 'admin',
   password: 'T4AjWvS5r6cjIK0ry2NC',
-  database: 'POS',
+  database: 'pos',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -725,7 +725,7 @@ app.get("/*", function(req, res) {
 });
 */
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8082;
 
 app.get('/', (req, res) => {
   res.send(`Server is running : ${PORT}`);
