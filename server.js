@@ -8,9 +8,9 @@ app.use(cors());
 app.use(express.json());
 
 const pool = mysql.createPool({
-  host: '127.0.0.1', 
-  user: 'root',
-  password: '4hq183kl',
+  host: 'psyzygypos.cr8wmm0k8rm3.ap-southeast-2.rds.amazonaws.com', 
+  user: 'admin',
+  password: 'T4AjWvS5r6cjIK0ry2NC',
   database: 'POS',
   waitForConnections: true,
   connectionLimit: 10,
@@ -708,7 +708,7 @@ app.get('/splitPaymentRecords', (req, res) => {
     return res.json(result);
   })
 })
-
+/*
 const buildpath = path.join(__dirname, "../clientSide/build");
 
 app.use(express.static(buildpath));
@@ -723,6 +723,7 @@ app.get("/*", function(req, res) {
     }
   );
 });
+*/
 
 const PORT = process.env.PORT || 3000;
 
