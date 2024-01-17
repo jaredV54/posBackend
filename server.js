@@ -709,13 +709,13 @@ app.get('/splitPaymentRecords', (req, res) => {
   })
 })
 
-const buildpath = path.join(__dirname, "../posFrontend/build");
+const buildpath = path.join(__dirname, "../clientSide/build");
 
 app.use(express.static(buildpath));
 
 app.get("/*", function(req, res) {
   res.sendFile(
-    path.join(__dirname, "../posFrontend/build", "index.html"), 
+    path.join(__dirname, "../clientSide/build", "index.html"), 
     function(err) {
       if (err) {
         res.status(500).send(err);
@@ -724,13 +724,12 @@ app.get("/*", function(req, res) {
   );
 });
 
-
-const PORT = 8081;
+const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send(`Server is running : 8081`);
+  res.send(`Server is running : ${PORT}`);
 });
 
 app.listen(PORT, () => {
-  console.log('Server is running on port 8081');
+  console.log(`Server is running on port ${PORT}`);
 });
