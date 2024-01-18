@@ -731,6 +731,6 @@ app.get('/', (req, res) => {
   res.send(`Server is running : ${PORT}`);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
