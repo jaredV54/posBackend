@@ -1,17 +1,18 @@
 import express from 'express';
 import mysql from 'mysql2';
 import cors from 'cors';
+import { config as dotenvConfig } from 'dotenv';
 
+dotenvConfig();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 const pool = mysql.createPool({
-  host: 'psyzygypos.cr8wmm0k8rm3.ap-southeast-2.rds.amazonaws.com', 
-  user: 'admin',
-  password: 'T4AjWvS5r6cjIK0ry2NC',
-  database: 'pos',
+  host: process.env.DB_HOST, 
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
