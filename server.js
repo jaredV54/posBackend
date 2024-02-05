@@ -1,11 +1,11 @@
-const express = require('express');
-const mysql = require('mysql2');
-const cors = require('cors');
-const path = require('path');
+import express from 'express';
+import mysql from 'mysql2';
+import cors from 'cors';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 
 const pool = mysql.createPool({
   host: 'psyzygypos.cr8wmm0k8rm3.ap-southeast-2.rds.amazonaws.com', 
@@ -17,9 +17,20 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+/*
+const pool = mysql.createPool({
+  host: '127.0.0.1', 
+  user: 'root',
+  password: '4hq183kl',
+  database: 'pos',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+*/
+
 //Create user
 app.post('/user', (req, res) => {
-  const sql = "INSERT INTO login (`name`, `email`, `password`, `userType`, `storeId`) VALUES ?";
   const values = [
     [
       req.body.name,
@@ -29,18 +40,33 @@ app.post('/user', (req, res) => {
       req.body.storeId
     ]
   ];
-  pool.query(sql, [values], (err, results) => {
+
+  const checkEmailExist = "SELECT email FROM login WHERE email = ?";
+  pool.query(checkEmailExist, [req.body.email], (err, results) => {
     if (err) {
       console.error(err);
-      return res.json("Error");
+      return res.status(500).json({ error: "Error checking email existence" });
     }
-    return res.json(results);
+    
+    if (results.length > 0) {
+      return res.json({ error: "Email already exists" });
+    }
+
+    const sql = "INSERT INTO login (`name`, `email`, `password`, `userType`, `storeId`) VALUES ?";
+  
+    pool.query(sql, [values], (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: "Error inserting user" });
+      }
+      
+      return res.json(results);
+    });
   });
 });
 
 //Get user
 app.get('/user', (req, res) => {
-  const sql = "SELECT l.id, l.name, l.email, l.password, l.userType, l.storeId, s.storeName FROM login l LEFT JOIN store s ON l.storeId = s.id";
+  const sql = "SELECT l.id, l.name, l.email, l.password, l.userType, l.storeId, s.storeName FROM login l LEFT JOIN store s ON l.storeId = s.id ORDER BY l.id ASC";
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
@@ -165,22 +191,42 @@ app.delete('/deleteUser/:id', (req, res) => {
 
 /* Host Page */
 
-// Create product
-app.post('/product', (req, res) => {
-  const { name, description, isDeleted, price, quantity, image, imageHover, hybrid } = req.body;
-  const sql = "INSERT INTO product (name, description, isDeleted, price, quantity, image, imageHover, hybrid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-  const values = [name, description, isDeleted, price, quantity, image, imageHover, hybrid];
+// Create hybrid
+app.post('/hybrid', (req, res) => {
+  const { name, description, price, quantity, hybrid, branch } = req.body;
+  const sql = "INSERT INTO product (name, price, quantity, description, hybrid) VALUES (?, ?, ?, ?, ?)";
+  const values = [name, price, quantity, description, hybrid];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
-      console.error(err);
       return res.json("Error creating product");
     }
-    return res.json("Product created");
+
+    if (result.affectedRows > 0 && result.insertId && hybrid === 'service') {
+      return createListOfTest(branch, result.insertId, res);
+    } else if (hybrid === 'product') {
+      return res.json("New Product added successfully!")
+    }
+
+    return res.json(`Failed to add ${hybrid}`);
   });
 });
 
-// Get all products
+const createListOfTest = (branch, insertedId, res) => {
+  const sql = "INSERT INTO assessment (`serviceId`, `psycTest`, `standardRate`) VALUES ?"
+  const values = branch.map(list => [insertedId, ...Object.values(list)]);
+
+  pool.query(sql, [values], (err, result) => {
+    if (err) {
+      return res.json(err);
+    }
+    if (result.affectedRows > 0) {
+      return res.json("New Service added successfully")
+    }
+  })
+}
+
+// Get all hybrid
 app.get('/product', (req, res) => {
   const { hybrid } = req.query;
 
@@ -218,70 +264,181 @@ app.put('/product/:id', (req, res) => {
   });
 });
 
-app.put('/deleteProduct/:id', (req, res) => {
-  const { id } = req.params;
-  const { isDeleted } = req.body;
-
-  if (isDeleted === undefined) {
-    return res.status(400).json("isDeleted is required");
-  }
-
-  const sql = "UPDATE product SET isDeleted = ? WHERE id = ?";
-  const values = [isDeleted, id];
-
-  pool.query(sql, values, (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json("Error updating product");
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json("Product not found");
-    }
-
-    return res.json("Product updated");
-  });
-});
-
-
-// Delete a product by ID
-app.put('/product/:id', (req, res) => {
-  const { id } = req.params;
-  const { name, description, isDeleted, price, quantity, image, imageHover } = req.body;
-  const sql = "UPDATE product SET name = ?, description = ?, isDeleted = ?, price = ?, quantity = ?, image = ?, imageHover = ? WHERE id = ?";
-  const values = [name, description, isDeleted, price, quantity, image, imageHover, id];
-
-  pool.query(sql, values, (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.json("Error deleting product");
-    }
-    if (result.affectedRows === 0) {
-      return res.json("Product not found");
-    }
-    return res.json("Product deleted");
-  });
-});
-
 /* Purchase & SalesRecord Page */
 
-//Get products by id
+//Get Hybrid by id
 app.get('/purchase/:id', (req, res) => {
   const { id } = req.params;
-  const sql = "SELECT * FROM product WHERE id = ?";
+  const { hybrid } = req.query;
+  const serviceType = `
+    SELECT *
+    FROM assessment 
+    WHERE serviceId = ?
+  `;
+  const productType = "SELECT * FROM product WHERE id = ?";
 
-  pool.query(sql, [id], (err, result) => {
+  if (hybrid === 'service') {
+    pool.query(serviceType, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ status: 'error', message: 'Internal Server Error', error: err });
+      }
+
+      if (result.length === 0) {
+        return res.status(404).json({ status: 'error', message: 'This service does not exist.' });
+      }
+
+      return res.status(200).json({ status: 'success', data: result });
+    });
+  } else {
+    pool.query(productType, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ status: 'error', message: 'Internal Server Error', error: err });
+      }
+
+      if (result.length === 0) {
+        return res.status(404).json({ status: 'error', message: 'This product does not exist.' });
+      }
+
+      return res.status(200).json({ status: 'success', data: result });
+    });
+  }
+});
+
+//Update hybrid 
+app.post('/hybrid/:id', (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    price,
+    quantity,
+    description,
+    hybrid,
+    branch
+  } = req.body;
+
+  const updateProductQuery = 'UPDATE product SET name = ?, price = ?, quantity = ?, description = ? WHERE id = ?';
+  const deleteAssessmentQuery = 'DELETE FROM assessment WHERE serviceId = ?';
+  const insertAssessmentQuery = 'INSERT INTO assessment (serviceId, psycTest, standardRate) VALUES ?';
+
+  const forUpdate = [name, price, quantity, description, id];
+  const forDelete = [id];
+  const forInsert = branch.map(list => [id, 
+    ...(Object.values(list).length > 2 ? Object.values(list).slice(2) : Object.values(list))
+  ]);
+
+  pool.getConnection((err, connection) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: "Error displaying product" });
+      res.status(500).json({ message: 'Failed to reach database. Please try again.' });
+      return;
     }
-    if (result.length === 0) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-    const product = result[0];
-    return res.json(product);
+
+    connection.beginTransaction((beginTransactionErr) => {
+      if (beginTransactionErr) {
+        console.error(beginTransactionErr);
+        res.status(500).json({ message: 'Error beginning database transaction' });
+        return connection.release();
+      }
+
+      connection.query(updateProductQuery, forUpdate, (updateErr, updateResults) => {
+        if (updateErr) {
+          return connection.rollback(() => {
+            console.error(updateErr);
+            res.status(500).json({ message: 'Error updating product data' });
+            connection.release();
+          });
+        }
+
+        if (hybrid === 'service') {
+          connection.query(deleteAssessmentQuery, forDelete, (deleteErr, deleteResults) => {
+            if (deleteErr) {
+              return connection.rollback(() => {
+                console.error(deleteErr);
+                res.status(500).json({ message: 'Error deleting assessment data' });
+                connection.release();
+              });
+            }
+  
+            connection.query(insertAssessmentQuery, [forInsert], (insertErr, insertResults) => {
+              if (insertErr) {
+                return connection.rollback(() => {
+                  console.error(insertErr);
+                  res.status(500).json({ message: 'Error inserting assessment data' });
+                  connection.release();
+                });
+              }
+  
+              connection.commit((commitErr) => {
+                if (commitErr) {
+                  console.error(commitErr);
+                  res.status(500).json({ message: 'Error committing transaction' });
+                  connection.rollback(() => {
+                    connection.release();
+                  });
+                } else {
+                  res.status(200).json({ message: 'Data updated successfully' });
+                  connection.release();
+                }
+              });
+            });
+          });
+        } else {
+          res.status(200).json({ message: 'Data updated successfully' });
+          connection.release();
+        }
+      });
+    });
   });
 });
+
+app.delete('/hybrid/:id', (req, res) => {
+  const { id } = req.params;
+  const { hybrid } = req.body;
+  const deleteServicePsycTest = `DELETE FROM assessment WHERE serviceId = ?`;
+  const deleteHybrid = `DELETE FROM product WHERE id = ?`;
+
+  if (hybrid === 'service') {
+    pool.query(deleteServicePsycTest, [id], (err, results) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).json({
+          success: false,
+          message: 'Error deleting service'
+        })
+      }
+  
+      if (results.affectedRows > 0) {
+        return deleteHybridById(id, res, deleteHybrid);
+      }
+    })
+  } else {
+    return deleteHybridById(id, res, deleteHybrid);
+  }
+})
+
+const deleteHybridById = (id, res, deleteHybrid) => {
+  pool.query(deleteHybrid, [id], (err, isDeleted) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete, please try again.'
+      })
+    }
+
+    if (isDeleted.affectedRows === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Internal error please try again.'
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Deleted Successfully`
+    })
+  })
+}
 
 //Purchase supplies - subtract quantity
 app.put('/purchase', (req, res) => {
@@ -708,22 +865,6 @@ app.get('/splitPaymentRecords', (req, res) => {
     return res.json(result);
   })
 })
-/*
-const buildpath = path.join(__dirname, "../clientSide/build");
-
-app.use(express.static(buildpath));
-
-app.get("/*", function(req, res) {
-  res.sendFile(
-    path.join(__dirname, "../clientSide/build", "index.html"), 
-    function(err) {
-      if (err) {
-        res.status(500).send(err);
-      }
-    }
-  );
-});
-*/
 
 const PORT = process.env.PORT || 8082;
 
@@ -731,6 +872,6 @@ app.get('/', (req, res) => {
   res.send(`Server is running : ${PORT}`);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
