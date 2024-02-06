@@ -190,7 +190,7 @@ app.delete('/deleteUser/:id', (req, res) => {
     });
 });
 
-/* Host Page */
+/* Purchase and products & services */
 
 // Create hybrid
 app.post('/hybrid', (req, res) => {
@@ -392,6 +392,7 @@ app.post('/hybrid/:id', (req, res) => {
   });
 });
 
+//Delet Hybrid
 app.delete('/hybrid/:id', (req, res) => {
   const { id } = req.params;
   const { hybrid } = req.body;
@@ -440,6 +441,23 @@ const deleteHybridById = (id, res, deleteHybrid) => {
     })
   })
 }
+
+//Retrieve the current selected hybrid
+app.get("/psycTest/:id", (req, res) => {
+  const { id } = req.params;
+  const getDataById = `SELECT * FROM assessment WHERE serviceId = ?`;
+
+  pool.query(getDataById, [id], (err, response) => {
+    if (err) {
+      return res.status(500).json({status: "failed", message: err.message})
+    }
+    if (response.length > 0) {
+      return res.status(200).json({status: "success", message: "Psychological Test fetched", data: response})
+    } else {
+      return res.status(404).json({status: "failed", message: "No psychological test found for the given ID.", data: []})
+    }
+  })
+})
 
 //Purchase supplies - subtract quantity
 app.put('/purchase', (req, res) => {
