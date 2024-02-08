@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import mysql from 'mysql2';
 import cors from 'cors';
 import { config as dotenvConfig } from 'dotenv';
@@ -459,6 +459,96 @@ app.get("/psycTest/:id", (req, res) => {
   })
 })
 
+//////////////////////////////////////////////////////////////
+//  Generate and check recipt number if it already exist
+//  Insert a transaction record
+//  Update sales record
+//  Update product quantity
+app.post("/recordTransactions", (req, res) => {
+  const sql = `SELECT * FROM transactions WHERE receiptNo = ?`;
+
+  const doesReceiptNoExist = () => {
+    const minReceiptNumber = 1408570382;
+    const maxReceiptNumber = 9987280339;
+    const generateReceiptNumber = Math.floor(Math.random() * (maxReceiptNumber - minReceiptNumber + 1)) + minReceiptNumber;
+    pool.query(sql, [generateReceiptNumber], (err, result) => {
+      if (err) {
+        res.status(500).json({isSuccessful: false, error: err.message});
+        return;
+      }
+
+      if (result.length > 0) {
+        doesReceiptNoExist();
+      } else {
+        return recordTransaction(req, res, generateReceiptNumber);
+      }
+    });
+  };
+
+  doesReceiptNoExist();
+});
+
+const recordTransaction = (req, res, receiptNo) => {
+  const { items, total, cash, changeAmount, clientId, modeOfPayment, accNo, typeOfPayment, platform, discount  } = req.body;
+  const recordTransactionSql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`, `platform`, `discount`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)";
+  const values = [items, total, cash, changeAmount, clientId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform, discount];
+
+  pool.query(recordTransactionSql, values, (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({isSuccessful: false, message: err.message});
+    }
+
+    if (result.affectedRows > 0) {
+      return updateCurrentHybrid(result.insertId, req, total, res)
+    } else {
+      return res.status(500).json({isSuccessful: false, message: "Internal error please try again."});
+    }
+  })
+}
+
+const updateCurrentHybrid = (transId, req, total, res) => {
+  const { hybridData } = req.body;
+
+  const updatePromises = hybridData.map(item => {
+    const { id, prodQuantity } = item;
+    const updateQuantity = "UPDATE product SET quantity = quantity - ? WHERE id = ?";
+    const updateQuantityVal = [prodQuantity, id];
+
+    return new Promise((resolve, reject) => {
+      pool.query(updateQuantity, updateQuantityVal, (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error(updateErr);
+          reject('Error updating product quantity');
+        } else {
+          resolve();
+        }
+      });
+    });
+  });
+
+  Promise.all(updatePromises)
+    .then(() => {
+      const insertSalesRecord = "INSERT INTO sales (`productId`, `price`, `quantity`, `transId`, `dateTimePurchased`) VALUES ?";
+      
+      const insertValues = hybridData.map(item => [item.id, item.newPrice, item.prodQuantity, transId, "NOW()"]);
+
+      pool.query(insertSalesRecord, [insertValues], (insertErr, insertResult) => {
+        if (insertErr) {
+          console.error(insertErr);
+          return res.status(500).json({ isSuccessful: false, message: 'Error inserting sales record' });
+        }
+        return res.status(200).json({ isSuccessful: true, message: 'Payment successful' });
+      });
+    })
+    .catch(error => {
+      return res.status(500).json({ isSuccessful: false, message: error });
+    });
+};
+
+
+///////////////////////////////////////////////////////////////
+
 //Purchase supplies - subtract quantity
 app.put('/purchase', (req, res) => {
   const { id, name, description, isDeleted, price, quantity, transId } = req.body;
@@ -839,7 +929,6 @@ app.post('/splitPayment', (req, res) => {
     }
   });
 });
-
 
 app.get('/splitPayment', (req, res) => {
   const sql = "SELECT transId, balance FROM splitpayment";
