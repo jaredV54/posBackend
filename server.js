@@ -241,9 +241,13 @@ app.get('/product', (req, res) => {
   pool.query(sql, [hybrid], (err, result) => {
     if (err) {
       console.error(err);
-      return res.status(500).json("Error retrieving products " +  err);
+      return res.status(500).json({isSuccessful: false, message: "Internal server error. Please contact the developer."});
     }
-    return res.status(200).json(result);
+    if (result.length > 0) {
+      return res.status(200).json({isSuccessful: true, result: result});
+    } else {
+      return res.status(404).json({ isSuccessful: false, message: "No results found!" });
+    }
   });
 });
 
@@ -392,7 +396,7 @@ app.post('/hybrid/:id', (req, res) => {
   });
 });
 
-//Delet Hybrid
+//Delete Hybrid
 app.delete('/hybrid/:id', (req, res) => {
   const { id } = req.params;
   const { hybrid } = req.body;
@@ -508,7 +512,7 @@ const recordTransaction = (req, res, receiptNo) => {
 }
 
 const updateCurrentHybrid = (transId, req, total, res) => {
-  const { hybridData } = req.body;
+  const { hybridData, currentDate } = req.body;
 
   const updatePromises = hybridData.map(item => {
     const { id, prodQuantity } = item;
@@ -529,60 +533,26 @@ const updateCurrentHybrid = (transId, req, total, res) => {
 
   Promise.all(updatePromises)
     .then(() => {
-      const insertSalesRecord = "INSERT INTO sales (`productId`, `price`, `quantity`, `transId`, `dateTimePurchased`) VALUES ?";
-      
-      const insertValues = hybridData.map(item => [item.id, item.newPrice, item.prodQuantity, transId, "NOW()"]);
+      const insertSalesRecord = "INSERT INTO sales (`productId`, `price`, `quantity`, `transId`, `dateTimePurchased`, `hybrid`) VALUES ?";
+      const insertValues = hybridData.map(item => [item.id, item.newPrice, item.prodQuantity, transId, currentDate, item.hybrid]);
 
       pool.query(insertSalesRecord, [insertValues], (insertErr, insertResult) => {
         if (insertErr) {
           console.error(insertErr);
           return res.status(500).json({ isSuccessful: false, message: 'Error inserting sales record' });
         }
-        return res.status(200).json({ isSuccessful: true, message: 'Payment successful' });
+        return res.status(200).json({ isSuccessful: true, message: 'Payment successful!' });
       });
     })
     .catch(error => {
       return res.status(500).json({ isSuccessful: false, message: error });
     });
 };
-
-
 ///////////////////////////////////////////////////////////////
-
-//Purchase supplies - subtract quantity
-app.put('/purchase', (req, res) => {
-  const { id, name, description, isDeleted, price, quantity, transId } = req.body;
-  const updateSql = "UPDATE product SET name = ?, description = ?, isDeleted = ?, quantity = quantity - ? WHERE id = ?";                                      
-  const valuesProduct = [name, description, isDeleted, quantity, id];
-  const addRowSql = "INSERT INTO sales (`productId`, `price`, `quantity`, `transId`, `dateTimePurchased`) VALUES (?, ?, ?, ?, NOW())";
-  const valuesSales = [id, price, quantity, transId];
-
-  pool.query(updateSql, valuesProduct, (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.json("Error updating product");
-    }
-    if (result.affectedRows === 0) {
-      return res.json("Product not found");
-    } else {
-      // Sales Record
-      pool.query(addRowSql, valuesSales, (err, data) => {
-        if (err) {
-          console.error(err);
-          return res.json("Error updating sales");
-        }
-        if (data.affectedRows === 0) {
-          return res.json("Failed to insert data");
-        }
-        return res.json("Sales updated");
-      });
-    }
-  });
-});
 
 //Get sales record
 app.get('/sales', (req, res) => {
-  const sql = "SELECT s.salesId, p.name, p.description, s.dateTimePurchased, s.price, s.quantity, s.transId FROM sales s JOIN product p ON s.productId = p.id ORDER BY s.salesId DESC, s.transId DESC;";
+  const sql = "SELECT s.salesId, p.name, p.description, s.dateTimePurchased, s.price, s.quantity, s.transId, s.hybrid FROM sales s JOIN product p ON s.productId = p.id ORDER BY s.salesId DESC, s.transId DESC;";
 
   pool.query(sql, (err, result) => {
     if (err) {
@@ -598,38 +568,6 @@ app.get('/sales', (req, res) => {
 app.post('/transactions', (req, res) => {
   proceedToTransaction(req, res);
 });
-
-const proceedToTransaction = (req, res) => {
-  const { items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform } = req.body;
-
-  const checkReceiptSql = "SELECT COUNT(*) AS count FROM transactions WHERE receiptNo = ?";
-  const checkReceiptValues = [receiptNo];
-
-  pool.query(checkReceiptSql, checkReceiptValues, (checkErr, checkResult) => {
-    if (checkErr) {
-      console.error(checkErr);
-      return res.status(502).json({ success: false, message: "Error checking receipt number" });
-    }
-
-    const receiptCount = checkResult[0].count;
-
-    if (receiptCount > 0) {
-      return res.json({ success: false, message: "Receipt number already exists" });
-    } else {
-      const sql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`, `platform`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)";
-      const values = [items, amount, money, change, customerId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform];
-
-      pool.query(sql, values, (err, result) => {
-        if (err) {
-          console.error(err);
-          return res.status(504).json({ success: false, message: "Transaction error" });
-        } else {
-          return res.status(200).json({ success: true, message: "Transaction successful", id: result.insertId });
-        }
-      });
-    }
-  });
-};
 
 app.get('/transactions/:id', (req, res) => {
   const transactionId = req.params.id;
@@ -750,6 +688,7 @@ app.get('/customerId', (req, res) => {
   });
 });
 
+// Retrieve sales record
 app.get('/salesRecord', (req, res) => {
   const { id } = req.query;
   const sql = "SELECT s.salesId, p.name, p.description, s.dateTimePurchased, s.price, s.quantity, s.transId FROM sales s JOIN product p ON s.productId = p.id WHERE s.transId = ?";
@@ -887,48 +826,54 @@ app.put('/deleteCustomer/:id', (req, res) => {
   });
 });
 
-//Split Payment
+// Split Payment Receipt
+// Split Transation
+// Split Payment
+/////////////////////////////////////////
 app.post('/splitPayment', (req, res) => {
+  const doesReceiptNoExist = () => {
+    const minReceiptNumber = 1408570382;
+    const maxReceiptNumber = 9987280339;
+    const generateReceiptNumber = Math.floor(Math.random() * (maxReceiptNumber - minReceiptNumber + 1)) + minReceiptNumber;
+    const sql = `SELECT * FROM splitpayment WHERE receiptNo = ?`;
+    pool.query(sql, [generateReceiptNumber], (err, result) => {
+      if (err) {
+        return res.status(502).json({ success: false, message: "Error checking receipt number" });
+      }
+      if (result.length > 0) {
+        doesReceiptNoExist();
+      } else {
+        return recordSplitPayment(req, res, generateReceiptNumber);
+      }
+    });
+  };
+
+  doesReceiptNoExist();
+});
+
+const recordSplitPayment = (req, res, generateReceiptNumber) => {
   const {
     transId,
     items,
     amount,
     money,
     balance,
-    receiptNo,
     customerId,
     modeOfPayment,
     accNo
   } = req.body;
-
-  // Check if the receipt number already exists in the splitpayment table
-  const checkReceiptSql = "SELECT COUNT(*) AS count FROM splitpayment WHERE receiptNo = ?";
-  const checkReceiptValues = [receiptNo];
-
-  pool.query(checkReceiptSql, checkReceiptValues, (checkErr, checkResult) => {
-    if (checkErr) {
-      console.error(checkErr);
-      return res.status(502).json({ success: false, message: "Error checking receipt number" });
-    }
-
-    const receiptCount = checkResult[0].count;
-
-    if (receiptCount > 0) {
-      return res.json({ success: false, message: "Receipt number already exists in splitpayment" });
-    } else {
-      const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
+  const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
       
-      pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
-        if (err) {
-          console.error(err);
-          return res.status(504).json({ success: false, message: "Split payment error" });
-        } else {
-          return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId });
-        }
-      });
+  pool.query(sql, [transId, items, amount, money, balance, generateReceiptNumber, customerId, modeOfPayment, accNo], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(504).json({ success: false, message: "Split payment error" });
+    } else {
+      return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId, receiptNo: generateReceiptNumber });
     }
   });
-});
+}
+/////////////////////////////////////////////////
 
 app.get('/splitPayment', (req, res) => {
   const sql = "SELECT transId, balance FROM splitpayment";
