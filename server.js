@@ -464,31 +464,28 @@ app.get("/psycTest/:id", (req, res) => {
 })
 
 //////////////////////////////////////////////////////////////
-//  Generate and check recipt number if it already exist
+//  Check recipt number if it already exist
 //  Insert a transaction record
 //  Update sales record
-//  Update product quantity
+//  Update products quantity
 app.post("/recordTransactions", (req, res) => {
+  const {receiptNo} = req.body;
   const sql = `SELECT * FROM transactions WHERE receiptNo = ?`;
 
   const doesReceiptNoExist = () => {
-    const minReceiptNumber = 1408570382;
-    const maxReceiptNumber = 9987280339;
-    const generateReceiptNumber = Math.floor(Math.random() * (maxReceiptNumber - minReceiptNumber + 1)) + minReceiptNumber;
-    pool.query(sql, [generateReceiptNumber], (err, result) => {
+    pool.query(sql, [receiptNo], (err, result) => {
       if (err) {
         res.status(500).json({isSuccessful: false, error: err.message});
         return;
       }
 
       if (result.length > 0) {
-        doesReceiptNoExist();
+        return res.status(404).json({message: `Receipt #${receiptNo} already exist.`})
       } else {
-        return recordTransaction(req, res, generateReceiptNumber);
+        return recordTransaction(req, res, receiptNo);
       }
     });
   };
-
   doesReceiptNoExist();
 });
 
@@ -831,19 +828,17 @@ app.put('/deleteCustomer/:id', (req, res) => {
 // Split Payment
 /////////////////////////////////////////
 app.post('/splitPayment', (req, res) => {
+  const { receiptNo } = req.body;
   const doesReceiptNoExist = () => {
-    const minReceiptNumber = 1408570382;
-    const maxReceiptNumber = 9987280339;
-    const generateReceiptNumber = Math.floor(Math.random() * (maxReceiptNumber - minReceiptNumber + 1)) + minReceiptNumber;
     const sql = `SELECT * FROM splitpayment WHERE receiptNo = ?`;
-    pool.query(sql, [generateReceiptNumber], (err, result) => {
+    pool.query(sql, [receiptNo], (err, result) => {
       if (err) {
         return res.status(502).json({ success: false, message: "Error checking receipt number" });
       }
       if (result.length > 0) {
-        doesReceiptNoExist();
+        return res.status(404).json({ success: false, message: "Receipt Number already exist." });
       } else {
-        return recordSplitPayment(req, res, generateReceiptNumber);
+        return recordSplitPayment(req, res, receiptNo);
       }
     });
   };
@@ -851,7 +846,7 @@ app.post('/splitPayment', (req, res) => {
   doesReceiptNoExist();
 });
 
-const recordSplitPayment = (req, res, generateReceiptNumber) => {
+const recordSplitPayment = (req, res, receiptNo) => {
   const {
     transId,
     items,
@@ -864,12 +859,12 @@ const recordSplitPayment = (req, res, generateReceiptNumber) => {
   } = req.body;
   const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
       
-  pool.query(sql, [transId, items, amount, money, balance, generateReceiptNumber, customerId, modeOfPayment, accNo], (err, result) => {
+  pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
     if (err) {
       console.error(err);
       return res.status(504).json({ success: false, message: "Split payment error" });
     } else {
-      return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId, receiptNo: generateReceiptNumber });
+      return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId, receiptNo: receiptNo });
     }
   });
 }
