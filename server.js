@@ -469,14 +469,13 @@ app.get("/psycTest/:id", (req, res) => {
 //  Update sales record
 //  Update products quantity
 app.post("/recordTransactions", (req, res) => {
-  const {receiptNo} = req.body;
+  const { receiptNo } = req.body;
   const sql = `SELECT * FROM transactions WHERE receiptNo = ?`;
 
   const doesReceiptNoExist = () => {
     pool.query(sql, [receiptNo], (err, result) => {
       if (err) {
-        res.status(500).json({isSuccessful: false, error: err.message});
-        return;
+        return res.status(500).json({isSuccessful: false, error: err.message});
       }
 
       if (result.length > 0) {
@@ -678,10 +677,10 @@ app.get('/customerId', (req, res) => {
   pool.query(sql, [id], (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error retrieving customer records");
+      return res.status(500).json({isSuccessful: false, message: "Error retrieving customer records."});
     }
-    console.log(result)
-    return res.json(result);
+
+    return res.status(200).json({isSuccessful: true, result: result, message: "Customer record retrived successfully!"});
   });
 });
 
@@ -693,10 +692,12 @@ app.get('/salesRecord', (req, res) => {
   pool.query(sql, [id], (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error retrieving sales records");
+      return res.status(500).json("Error retrieving sales records");
     }
-    console.log(result)
-    return res.json(result);
+    if (result.length > 0) {
+      return res.status(404).json({isSuccessful: false, message: "Internal error. Please try again." })
+    }
+    return res.status(200).json({isSuccessful: true, result: result});
   });
 });
 
@@ -836,13 +837,12 @@ app.post('/splitPayment', (req, res) => {
         return res.status(502).json({ success: false, message: "Error checking receipt number" });
       }
       if (result.length > 0) {
-        return res.status(404).json({ success: false, message: "Receipt Number already exist." });
+        return res.status(404).json({ success: false, message: "Receipt Number already exist. Please insert unique numbers." });
       } else {
         return recordSplitPayment(req, res, receiptNo);
       }
     });
   };
-
   doesReceiptNoExist();
 });
 
@@ -864,7 +864,7 @@ const recordSplitPayment = (req, res, receiptNo) => {
       console.error(err);
       return res.status(504).json({ success: false, message: "Split payment error" });
     } else {
-      return res.status(200).json({ success: true, message: "Split payment successful", id: result.insertId, receiptNo: receiptNo });
+      return res.status(200).json({ success: true, message: "Payment successful!", id: result.insertId, receiptNo: receiptNo });
     }
   });
 }
@@ -915,7 +915,6 @@ app.get('/splitPaymentRecords', (req, res) => {
 })
 
 const PORT = process.env.PORT || 8082;
-
 app.get('/', (req, res) => {
   res.send(`Server is running : ${PORT}`);
 });
