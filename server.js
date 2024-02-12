@@ -555,7 +555,6 @@ app.get('/sales', (req, res) => {
       console.error(err);
       return res.json("Error retrieving sales record");
     }
-    console.log(result)
     return res.json(result);
   });
 })
@@ -692,7 +691,7 @@ app.get('/salesRecord', (req, res) => {
   pool.query(sql, [id], (err, result) => {
     if (err) {
       console.error(err);
-      return res.status(500).json("Error retrieving sales records");
+      return res.status(500).json({isSuccessful: false, message: "Error retrieving sales records"});
     }
     if (result.length > 0) {
       return res.status(404).json({isSuccessful: false, message: "Internal error. Please try again." })
