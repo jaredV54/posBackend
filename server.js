@@ -558,6 +558,7 @@ app.get('/transactions/:id', (req, res) => {
   });
 });
 
+// Retrieve transactions
 app.get('/transactions', (req, res) => {
   const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.remarks, t.providers FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
 
