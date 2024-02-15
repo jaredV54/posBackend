@@ -91,7 +91,7 @@ app.post('/login', (req, res) => {
           return res.json("Error");
         }
         if (passwordData.length > 0) {
-          return res.json({ message: "Requirements Matched", data: emailData });
+          return res.json({ message: "Requirements Matched", data: [{userType: emailData[0].userType, storeId: emailData[0].storeId}] });
         } else {
           return res.json("Wrong Password");
         }
