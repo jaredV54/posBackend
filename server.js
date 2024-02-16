@@ -572,17 +572,22 @@ app.get('/transactions', (req, res) => {
   });
 });
 
-//Store
+// Manage Place Records
+///////////////////////////////////////////////////////////
 app.get('/store', (req, res) => {
   const sql = "SELECT * FROM store";
 
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error retrieving store records");
+      return res.status(500).json({isSuccessful: false, message: "Error retrieving store records", error: err.message});
     }
-    console.log(result)
-    return res.json(result);
+
+    if (result.length === 0) {
+      return res.status(404).json({ isSuccessful: false, message: "No place info found." });
+    }
+
+    return res.status(200).json({isSuccessful: true, result: result});
   });
 })
 
@@ -594,10 +599,14 @@ app.post('/store', (req, res) => {
   pool.query(sql, values, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error adding store");
+      return res.status(500).json({isSuccessful: false, message: err.message});
     }
-    console.log(result)
-    return res.json(result);
+
+    if (result.affectedRows === 0) {
+     return res.status(404).json({isSuccessful: false, message: "Invalid input or duplicate entry."})
+    }
+
+    return res.status(200).json({isSuccessful: true, message: "New Place added!", result: result});
   });
 })
 
@@ -609,12 +618,12 @@ app.delete('/store/:id', (req, res) => {
   pool.query(sql, values, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error deleting store");
+      return res.json({isSuccessful: false, message: "Error deleting store"});
     }
     if (result.affectedRows === 0) {
-      return res.json("Store not found");
+      return res.json({isSuccessful: false, message: "Place stored ID didn't found; Internal error!"});
     }
-    return res.json("Store deleted");
+    return res.json({isSuccessful: true, message: "Deleted Successfully", result: result});
   });
 });
 
@@ -626,17 +635,20 @@ app.put('/store/:id', (req, res) => {
 
   pool.query(sql, values, (err, result) => {
     if (err) {
-      console.error(err);
-      return res.json("Error updating store");
+      return res.status(500).json({isSuccessful: false, message: "Error"});
     }
+
     if (result.affectedRows === 0) {
-      return res.json("Store not found");
+      return res.status(404).json({isSuccessful: false, message: "No existing place found; Internal error!"});
     }
-    return res.json("Store updated");
+
+    return res.status(200).json({isSuccessful: true, message: "Update successful!"});
   });
 });
+///////////////////////////////////////////////////////////
 
-//Customer
+
+// Retrieve Client Information
 app.get('/customer', (req, res) => {
   const sql = "SELECT * FROM customer ORDER BY id DESC";
 
@@ -804,11 +816,11 @@ app.put('/deleteCustomer/:id', (req, res) => {
   });
 });
 
-// Split Payment Receipt
+// Split Payment Receipt 
 // Split Transation
 // Split Payment
-/////////////////////////////////////////
-
+// Retrieve Split Payment Balance | Retrieve Split Payment Records
+/////////////////////////////////////////////////////////////
 app.post('/splitPayment', (req, res) => {
   const {
     transId,
@@ -832,7 +844,6 @@ app.post('/splitPayment', (req, res) => {
     }
   });
 });
-/////////////////////////////////////////////////
 
 app.get('/splitPayment', (req, res) => {
   const sql = "SELECT transId, balance FROM splitpayment";
@@ -877,6 +888,7 @@ app.get('/splitPaymentRecords', (req, res) => {
     return res.json(result);
   })
 })
+/////////////////////////////////////////////////////////////
 
 const PORT = process.env.PORT || 8082;
 app.get('/', (req, res) => {
