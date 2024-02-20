@@ -3,7 +3,7 @@ import { pool } from "../db.js";
 // Retrieve transaction by id
 export const retrieveTransactionPerId = (req, res) => {
   const transactionId = req.params.id;
-  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform FROM transactions t JOIN customer c ON c.id = t.customerId WHERE t.id = ? ORDER BY t.id DESC;";
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.balance FROM transactions t JOIN customer c ON c.id = t.customerId WHERE t.id = ? ORDER BY t.id DESC;";
 
   pool.query(sql, [transactionId], (err, result) => {
     if (err) {
@@ -17,7 +17,7 @@ export const retrieveTransactionPerId = (req, res) => {
 
 // Retrieve transactions
 export const retrieveTransactions = (req, res) => {
-  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.remarks, t.providers FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.remarks, t.providers, t.balance FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
 
   pool.query(sql, (err, result) => {
     if (err) {
@@ -64,9 +64,29 @@ export const recordSplitPayment = (req, res) => {
   pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
     if (err) {
       console.error(err);
-      return res.status(504).json({ success: false, message: "Split payment error" });
+      return res.status(500).json({ success: false, message: "Split payment error" });
+    }
+
+    if (result.affectedRows > 0)  {
+      return updateTransactionBalance(transId, balance, res, result.insertId, receiptNo);
     } else {
-      return res.status(200).json({ success: true, message: "Payment successful!", id: result.insertId, receiptNo: receiptNo });
+      return res.status(404).json({ success: false, message: "Internal error!"})
+    }
+  });
+};
+
+const updateTransactionBalance = (id, balance, res, insertedID, receiptNo) => {
+  const sql = `UPDATE transactions SET balance = ? WHERE id = ?`;
+  pool.query(sql, [balance, id], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+
+    if (result.affectedRows > 0) {
+      return res.status(200).json({ success: true, message: "Payment successful!", id: insertedID, receiptNo: receiptNo });
+    } else {
+      return res.status(404).json({ success: false, message: "Internal error!" });
     }
   });
 };
