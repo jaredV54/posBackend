@@ -3,7 +3,7 @@ import { pool } from "../db.js";
 // Retrieve transaction by id
 export const retrieveTransactionPerId = (req, res) => {
   const transactionId = req.params.id;
-  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.balance FROM transactions t JOIN customer c ON c.id = t.customerId WHERE t.id = ? ORDER BY t.id DESC;";
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.balance, t.service FROM transactions t JOIN customer c ON c.id = t.customerId WHERE t.id = ? ORDER BY t.id DESC;";
 
   pool.query(sql, [transactionId], (err, result) => {
     if (err) {
@@ -17,7 +17,7 @@ export const retrieveTransactionPerId = (req, res) => {
 
 // Retrieve transactions
 export const retrieveTransactions = (req, res) => {
-  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.remarks, t.providers, t.balance FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
+  const sql = "SELECT t.id, t.items, t.amount, t.cash, t.changeAmount, t.transDate, t.customerId, c.fName, c.lName, t.receiptNo, t.modeOfPayment, t.accNo, t.typeOfPayment, t.platform, t.remarks, t.providers, t.balance, t.service FROM transactions t JOIN customer c ON c.id = t.customerId ORDER BY t.id DESC;";
 
   pool.query(sql, (err, result) => {
     if (err) {

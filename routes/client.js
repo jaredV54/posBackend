@@ -6,6 +6,6 @@ router.get('/customer', clientInfo);
 router.get('/customerId', clientInfoPerId);
 router.put('/customer/:id', updateClientInfo);
 router.post('/customer', addNewClient);
-router.delete('/deleteCustomer/:id', deleteClient);
+router.put('/deleteCustomer/:id', deleteClient);
 
 export default router;

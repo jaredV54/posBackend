@@ -40,10 +40,10 @@ export const selectHybrid = (req, res) => {
 
 //  Insert a transaction record
 export const recordTransactions = (req, res) => {
-  const { items, total, cash, changeAmount, clientId, modeOfPayment, accNo, typeOfPayment, platform, discount, receiptNo, remarks, providers } = req.body;
-  const recordTransactionSql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`, `platform`, `discount`, `remarks`, `providers`, `balance`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  const { items, total, cash, changeAmount, clientId, modeOfPayment, accNo, typeOfPayment, platform, discount, receiptNo, remarks, providers, service } = req.body;
+  const recordTransactionSql = "INSERT INTO transactions (items, amount, cash, changeAmount, transDate, `customerId`, `receiptNo`, `modeOfPayment`, `accNo`, `typeOfPayment`, `platform`, `discount`, `remarks`, `providers`, `balance`, `service`) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
   const balance = typeOfPayment === "split" ? changeAmount : 0;
-  const values = [items, total, cash, changeAmount, clientId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform, discount, remarks, providers, balance];
+  const values = [items, total, cash, changeAmount, clientId, receiptNo, modeOfPayment, accNo, typeOfPayment, platform, discount, remarks, providers, balance, service];
 
   pool.query(recordTransactionSql, values, (err, result) => {
     if (err) {

@@ -42,13 +42,14 @@ export const updateClientInfo = (req, res) => {
     bDate, 
     contactPersonName, 
     contactPersonNo, 
+    service,
     remarks,
     sourceOfReferral,
     providers,
     caseNumber
   } = req.body;
-  const sql = "UPDATE customer SET fName = ?, lName = ?, mName = ?, email = ?, contactNo = ?, address = ?, bDate = ?, contactPersonName = ?, contactPersonNo = ?, remarks = ?, sourceOfReferral = ?, providers =?, caseNumber= ?  WHERE id = ?";
-  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber, id];
+  const sql = "UPDATE customer SET fName = ?, lName = ?, mName = ?, email = ?, contactNo = ?, address = ?, bDate = ?, contactPersonName = ?, contactPersonNo = ?, remarks = ?, sourceOfReferral = ?, providers = ?, caseNumber = ?, service = ? WHERE id = ?";
+  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber, service, id];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
@@ -74,14 +75,15 @@ export const addNewClient = (req, res) => {
     bDate, 
     contactPersonName,
     contactPersonNo,
+    service,
     remarks,
     sourceOfReferral,
     providers,
     caseNumber
 
   } = req.body;
-  const sql = "INSERT INTO customer (fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber];
+  const sql = "INSERT INTO customer (fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber, service) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  const values = [fName, lName, mName, email, contactNo, address, bDate, contactPersonName, contactPersonNo, remarks, sourceOfReferral, providers, caseNumber, service];
 
   pool.query(sql, values, (err, result) => {
     if (err) {
