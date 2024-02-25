@@ -51,7 +51,7 @@ export const placeInfo = (req, res) => {
   pool.query(userTypeAndStoreQuery, [req.body.email, req.body.password], (err, result) => {
     if (err) {
       console.error("Error executing query:", err);
-      return res.status(500).json({ message: "Error occurred" });
+      return res.status(500).json({ warn: "Internal error. Please check your internet." });
     }
 
     if (result.length === 0) {

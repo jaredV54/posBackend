@@ -75,3 +75,21 @@ export const updatePlace = (req, res) => {
     return res.status(200).json({isSuccessful: true, message: "Update successful!"});
   });
 };
+
+export const retrievePlaceByID = (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT * FROM store WHERE id = ?";
+
+  pool.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({isSuccessful: false, message: "Error retrieving store records", error: err.message});
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ isSuccessful: false, message: "No place info found. Please contact The developer" });
+    }
+
+    return res.status(200).json({isSuccessful: true, result: result[0]});
+  });
+}

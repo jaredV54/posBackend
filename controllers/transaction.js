@@ -57,11 +57,12 @@ export const recordSplitPayment = (req, res) => {
     customerId,
     modeOfPayment,
     accNo,
-    receiptNo
+    receiptNo,
+    placeId
   } = req.body;
-  const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
+  const sql = "INSERT INTO splitpayment (`transId`, `items`, `amount`, `cash`, `balance`, `transDate`, `receiptNo`, `customerId`, `modeOfPayment`, `accNo`, `placeId`) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)";
       
-  pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo], (err, result) => {
+  pool.query(sql, [transId, items, amount, money, balance, receiptNo, customerId, modeOfPayment, accNo, placeId], (err, result) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ success: false, message: "Split payment error" });

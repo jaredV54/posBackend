@@ -49,7 +49,7 @@ export const retrieveHybrids = (req, res) => {
     pool.query(sql, [hybrid], (err, result) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({isSuccessful: false, message: "Internal server error. Please contact the developer."});
+        return res.status(500).json({ isSuccessful: false, message: "Internal error. Please check your internet." });
       }
       if (result.length > 0) {
         return res.status(200).json({isSuccessful: true, result: result});
