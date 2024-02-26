@@ -14,7 +14,11 @@ export const userLogin = (req, res) => {
           return res.json("Error");
         }
         if (passwordData.length > 0) {
-          return res.json({ message: "Requirements Matched", data: [{userType: emailData[0].userType, storeId: emailData[0].storeId}] });
+          return res.json({ message: "Requirements Matched", data: [{
+            userType: emailData[0].userType, 
+            storeId: emailData[0].storeId,
+            userId: emailData[0].id
+          }] });
         } else {
           return res.json("Wrong Password");
         }

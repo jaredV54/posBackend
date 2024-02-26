@@ -198,8 +198,8 @@ const deleteHybridById = (id, res, deleteHybrid) => {
   })
 };
 
-//Retrieve the current selected hybrid psychological test
-export const retrievePsycTest = (req, res) => {
+// Retrieve the current selected hybrid list for service 
+export const retrieveLists = (req, res) => {
     const { id } = req.params;
     const getDataById = `SELECT * FROM assessment WHERE serviceId = ?`;
   
@@ -208,9 +208,9 @@ export const retrievePsycTest = (req, res) => {
         return res.status(500).json({status: "failed", message: err.message})
       }
       if (response.length > 0) {
-        return res.status(200).json({status: "success", message: "Psychological Test fetched", data: response})
+        return res.status(200).json({status: "success", message: "Lists fetched", data: response})
       } else {
-        return res.status(404).json({status: "failed", message: "No psychological test found for the given ID.", data: []})
+        return res.status(404).json({status: "failed", message: "No Lists found for that particular service.", data: []})
       }
     })
 };

@@ -2,15 +2,21 @@ import { pool } from "../db.js"
 
 // Retrieve Client Information
 export const clientInfo = (req, res) => {
-  const sql = "SELECT * FROM customer ORDER BY id DESC";
+  const { displayCount } = req.query;
+  const sql = `SELECT * FROM customer WHERE isDeleted IS NULL OR isDeleted != true ORDER BY id DESC LIMIT ${displayCount}`;
 
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error retrieving customer records");
+      return res.status(500).json({isSuccessful: false, message: "Internal Error. Retrieving client records failed!"});
     }
-    console.log(result)
-    return res.json(result);
+
+    if (result.length > 0) {
+      return res.status(200).json({isSuccessful: true, message: "Clients fetched.", result: result});
+    } else {
+      return res.status(404).json({isSuccessful: false, message: "Database error. Contact the developer"});
+    }
+    
   });
 };
 
@@ -54,12 +60,12 @@ export const updateClientInfo = (req, res) => {
   pool.query(sql, values, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error updating customer");
+      return res.status(500).json({isSuccessful: false, message: "Updating client failed. Internal server error."});
     }
     if (result.affectedRows === 0) {
-      return res.json("Customer not found");
+      return res.status(404).json({isSuccessful: false, message: "Updating client failed. Database error!"});
     }
-    return res.json("Customer updated");
+    return res.status(200).json({isSuccessful: true, message: "Client info updated successfully!"});
   });
 };
 
@@ -88,10 +94,12 @@ export const addNewClient = (req, res) => {
   pool.query(sql, values, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error adding customer");
+      return res.status(500).json({isSuccessful: false, message: "Adding new Client failed. Internal server error."});
     }
-    console.log(result)
-    return res.json(result);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({isSuccessful: false, message: "Adding new Client failed. Database error!"});
+    }
+    return res.status(200).json({isSuccessful: true, message: "New Client added successfully!"});
   });
 };
 
@@ -106,11 +114,11 @@ export const deleteClient = (req, res) => {
   pool.query(sql, values, (err, result) => {
     if (err) {
       console.error(err);
-      return res.json("Error updating customer");
+      return res.status(500).json({isSuccessful: false, message: "Error updating customer"});
     }
     if (result.affectedRows === 0) {
-      return res.json("Customer not found");
+      return res.status(404).json({isSuccessful: false, message: "Client not found. Database error."});
     }
-    return res.json("Customer updated");
+    return res.status(200).json({isSuccessful: true, message: "Deleted Successfully!"});
   });
 };
