@@ -2,9 +2,9 @@ import { pool } from "../db.js"
 
 // Create hybrid
 export const addNewHybrid = (req, res) => {
-    const { name, description, price, quantity, hybrid, branch, listLabel, priceLabel } = req.body;
-    const sql = "INSERT INTO product (name, price, quantity, description, hybrid, listLabel, priceLabel) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    const values = [name, price, quantity, description, hybrid, listLabel, priceLabel];
+    const { name, description, price, quantity, hybrid, branch, listLabel, priceLabel, profFee } = req.body;
+    const sql = "INSERT INTO product (name, price, quantity, description, hybrid, listLabel, priceLabel, profFee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    const values = [name, price, quantity, description, hybrid, listLabel, priceLabel, profFee];
   
     pool.query(sql, values, (err, result) => {
       if (err) {
@@ -71,13 +71,14 @@ export const updateHybrid = (req, res) => {
     listLabel,
     priceLabel,
     branch,
+    profFee
   } = req.body;
 
-  const updateProductQuery = 'UPDATE product SET name = ?, price = ?, quantity = ?, description = ?, listLabel = ?, priceLabel = ? WHERE id = ?';
+  const updateProductQuery = 'UPDATE product SET name = ?, price = ?, quantity = ?, description = ?, listLabel = ?, priceLabel = ?, profFee = ? WHERE id = ?';
   const deleteAssessmentQuery = 'DELETE FROM assessment WHERE serviceId = ?';
   const insertAssessmentQuery = 'INSERT INTO assessment (serviceId, psycTest, standardRate) VALUES ?';
 
-  const forUpdate = [name, price, quantity, description, listLabel, priceLabel, id];
+  const forUpdate = [name, price, quantity, description, listLabel, priceLabel, profFee, id];
   const forDelete = [id];
   const forInsert = branch.map(list => [id, 
     ...(Object.values(list).length > 2 ? Object.values(list).slice(2) : Object.values(list))
