@@ -96,7 +96,7 @@ export const retrievePlaceByID = (req, res) => {
 
 export const retrieveTransRecordByPlace = (req, res) => {
   const { id } = req.params;
-  const sql = "SELECT * FROM transactions WHERE placeId = ?";
+  const sql = "SELECT * FROM transactions WHERE placeId = ? ORDER BY id DESC;";
 
   pool.query(sql, [id], (err, result) => {
     if (err) {
