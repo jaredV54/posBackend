@@ -93,3 +93,21 @@ export const retrievePlaceByID = (req, res) => {
     return res.status(200).json({isSuccessful: true, result: result[0]});
   });
 }
+
+export const retrieveTransRecordByPlace = (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT * FROM transactions WHERE placeId = ?";
+
+  pool.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({isSuccessful: false, message: "Error retrieving transaction records", error: err.message});
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ isSuccessful: false, message: "No transaction info found. Please contact The developer" });
+    }
+
+    return res.status(200).json({isSuccessful: true, result: result});
+  });
+}
